@@ -3,7 +3,7 @@
 #
 
 CC = gcc
-CFLAGS = -O2 -funroll-loops -ansi -pedantic -ffast-math -D_SVID_SOURCE -D_BSD_SOURCE -DSHM -I/usr/X11R6/include
+CFLAGS = -O2 -funroll-loops -pedantic -ffast-math -D_SVID_SOURCE -D_BSD_SOURCE -DSHM -I/usr/X11R6/include
 XLIBS = -L/usr/X11/lib -L/usr/X11R6/lib -lX11 -lXext -lXt -lSM -lICE
 
 ##### MACROS #####
