@@ -6,8 +6,8 @@
 
 GLenum doubleBuffer;
 
-#define LARGURA_TELA_X 800         // largura da tela
-#define ALTURA_TELA_Y 600          // altura da tela
+#define LARGURA_TELA_X 800 // largura da tela
+#define ALTURA_TELA_Y 600  // altura da tela
 #define TITULO_TELA "Trabalho do riveira"
 #define COR_DE_FUNDO 1.0, 1.0, 1.0, 0.0
 
@@ -20,41 +20,69 @@ void Reshape(void)
     glViewport(0, 0, LARGURA_TELA_X, ALTURA_TELA_Y);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(-LARGURA_TELA_X/2, LARGURA_TELA_X/2, -ALTURA_TELA_Y/2, ALTURA_TELA_Y/2);
+    gluOrtho2D(-LARGURA_TELA_X / 2, LARGURA_TELA_X / 2, -ALTURA_TELA_Y / 2, ALTURA_TELA_Y / 2);
     glMatrixMode(GL_MODELVIEW);
 }
 
 void DesenharEixos(void)
 {
-	// Grossura da linha do eixo
-	glLineWidth(GROSSURA_DA_LINHA_DO_EIXO);
-	// Cor da linha do eixo
-	glColor3f(COR_DA_LINHA);
+    // Grossura da linha do eixo
+    glLineWidth(GROSSURA_DA_LINHA_DO_EIXO);
+    // Cor da linha do eixo
+    glColor3f(COR_DA_LINHA);
 
-	// Desenha o eixo X
-	glBegin(GL_LINE_STRIP);
-	glVertex2f(-LARGURA_TELA_X, 0);
-	glVertex2f(LARGURA_TELA_X, 0);
-	glEnd();
+    // Desenha o eixo X
+    glBegin(GL_LINE_STRIP);
+    glVertex2f(-LARGURA_TELA_X, 0);
+    glVertex2f(LARGURA_TELA_X, 0);
+    glEnd();
 
-	// Desenha o eixo Y
-	glBegin(GL_LINE_STRIP);
-	glVertex2f(0, -ALTURA_TELA_Y);
-	glVertex2f(0, ALTURA_TELA_Y);
-	glEnd();
+    // Desenha o eixo Y
+    glBegin(GL_LINE_STRIP);
+    glVertex2f(0, -ALTURA_TELA_Y);
+    glVertex2f(0, ALTURA_TELA_Y);
+    glEnd();
 }
 
-static void PreencherTela(void)
+void PreencherTela(void)
 {
     glClearColor(COR_DE_FUNDO);
     glClear(GL_COLOR_BUFFER_BIT);
 
-	DesenharEixos(); 
+    DesenharEixos();
 
     if (doubleBuffer)
         glutSwapBuffers();
     else
         glFlush();
+}
+
+void InicializarMenu(void){};
+
+void MenuDesenhos(void){};
+
+void MenuOperacoes(void){};
+
+void CriarMenus(void)
+{
+    int menuDeDesenho = glutCreateMenu(MenuDesenhos);
+    glutAddMenuEntry("Fazer pontos", 0);
+    glutAddMenuEntry("Desenhar poligono", 1);
+    glutAddMenuEntry("Limpar pontos", 2);
+
+    int menuDeOperacoes = glutCreateMenu(MenuOperacoes);
+    glutAddMenuEntry("Deselecionar", 0);
+    glutAddMenuEntry("Mover", 0);
+    glutAddMenuEntry("Rotacionar", 0);
+    glutAddMenuEntry("Escalar", 0);
+    glutAddMenuEntry("Cisalhar", 0);
+
+    glutCreateMenu(InicializarMenu);
+    glutAddMenuEntry("Menu de operacoes", 0);
+    glutAddSubMenu("Desenhar Objeto", menuDeDesenho);
+    glutAddSubMenu("Transformar", menuDeOperacoes);
+    
+	glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
 int main(int argc, char **argv)
@@ -65,7 +93,7 @@ int main(int argc, char **argv)
     type = GLUT_RGB;
     type |= (doubleBuffer) ? GLUT_DOUBLE : GLUT_SINGLE;
     glutInitDisplayMode(type);
-    //Cria a tela
+    // Cria a tela
     glutInitWindowSize(LARGURA_TELA_X, ALTURA_TELA_Y);
     // Define o título da tela
     glutCreateWindow(TITULO_TELA);
@@ -73,6 +101,7 @@ int main(int argc, char **argv)
     glutReshapeFunc(Reshape);
     // Cria o desenho inicial na tela
     glutDisplayFunc(PreencherTela);
+    CriarMenus();
 
     glutMainLoop();
     return 0;
