@@ -14,6 +14,13 @@ GLenum doubleBuffer;
 #define GROSSURA_DA_LINHA_DO_EIXO 1
 #define COR_DA_LINHA 1.0, 0.0, 0.0
 
+// Escopo de variaveis globais
+
+// 0 = Pontos | 1 = Poligono
+int modoDoDesenho = 0;
+int quantidadeDePontos = 0;
+int operacaoSelecionada = 0;
+
 // Funçao que redesenha o polígono dentro da tela
 void Reshape(void)
 {
@@ -59,9 +66,29 @@ void PreencherTela(void)
 
 void InicializarMenu(void){};
 
-void MenuDesenhos(void){};
+void MenuDesenhos(int opcao)
+{
+    switch (opcao)
+    {
+    case 0:
+        modoDoDesenho = 0;
+        break;
+    case 1:
+        modoDoDesenho = 1;
+        break;
+    case 2:
+        modoDoDesenho = 0;
+        quantidadeDePontos = 0;
+        break;
+    }
+    glutPostRedisplay();
+};
 
-void MenuOperacoes(void){};
+void MenuOperacoes(int opcao)
+{
+    if (modoDoDesenho == 0)
+        operacaoSelecionada = opcao;
+};
 
 void CriarMenus(void)
 {
@@ -72,17 +99,17 @@ void CriarMenus(void)
 
     int menuDeOperacoes = glutCreateMenu(MenuOperacoes);
     glutAddMenuEntry("Deselecionar", 0);
-    glutAddMenuEntry("Mover", 0);
-    glutAddMenuEntry("Rotacionar", 0);
-    glutAddMenuEntry("Escalar", 0);
-    glutAddMenuEntry("Cisalhar", 0);
+    glutAddMenuEntry("Mover", 1);
+    glutAddMenuEntry("Rotacionar", 2);
+    glutAddMenuEntry("Escalar", 3);
+    glutAddMenuEntry("Cisalhar", 4);
 
     glutCreateMenu(InicializarMenu);
     glutAddMenuEntry("Menu de operacoes", 0);
     glutAddSubMenu("Desenhar Objeto", menuDeDesenho);
     glutAddSubMenu("Transformar", menuDeOperacoes);
-    
-	glutAttachMenu(GLUT_RIGHT_BUTTON);
+
+    glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
 int main(int argc, char **argv)
@@ -101,6 +128,7 @@ int main(int argc, char **argv)
     glutReshapeFunc(Reshape);
     // Cria o desenho inicial na tela
     glutDisplayFunc(PreencherTela);
+    // Criar os menus do gluth
     CriarMenus();
 
     glutMainLoop();
