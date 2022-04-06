@@ -2,262 +2,249 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include "GL/glut.h" 
+#include "GL/glut.h"
 
-#define MAXVERTEXS 30
+GLenum doubleBuffer;
 
-#define PHI 3.141572
- 
-GLenum doubleBuffer;     
- 
-typedef struct spts 
-{ 
-    float v[3]; 
-} tipoPto; 
+#define MAX_VERTICES_DO_POLIGONO 4 // vertices do poligono
+#define LARGURA_TELA_X 800		   // largura da tela
+#define ALTURA_TELA_Y 600		   // altura da tela
+#define TITULO_TELA "Trabalho Ausberto - Basic Glut"
 
-//tipoPto ppuntos[MAXVERTEXS];
+// Presets do programa
+#define LIMITE_DISTANCIA_MOUSE_VERTICE 10.0 // A distancia entre o clique do usuario e a vertice
 
-tipoPto pvertex[MAXVERTEXS];
+// constantes de desenho
+#define GROSSURA_DA_LINHA_DO_EIXO 1
+#define COR_DA_LINHA 1.0, 0.0, 0.0
+#define COR_DO_POLIGONO 0.0, 0.0, 0.0
+#define COR_DE_FUNDO 1.0, 1.0, 1.0, 0.0
+#define COR_DA_VERTICE_SELECIONADA 0.0, 1.0, 0.0
+#define TAMANHO_FEEDBACK_VERTICE_SELECIONADA 5
 
-int windW, windH;
-int tipoPoligono;
-int nVertices = 0;
-int jaPoligono = 0;
-
-void circulo(float r, float ang, float pp[3])
+// Cria a estrutura de poligono e cria uma variavel chamado poligono que tem vertices
+struct polygon
 {
-	pp[0] = (float)(r * cos(ang));
-	pp[1] = (float)(r * sin(ang));
-	pp[2] = (float)0.0;
-}
+	float v[3]; // Vertice
+} poligono[MAX_VERTICES_DO_POLIGONO];
 
-void init(void)
+// Tamanho da tela (x,y)
+int windW, windH;
+
+// Como o openGL vai desenhar (GL_POINTS, GL_LINE_LOOP)
+int tipoDesenhoPoligono = GL_POINTS; // Define se vai ser o ponto ou linha
+
+// Numero de pontos que o usuário fez
+int pontosCriados = 0;
+
+// O poligono foi desenhado?
+int poligonoJaDesenhado = 0;
+
+void InicializarPoligono(void)
 {
 	int i;
 
-	jaPoligono = 0;
-	nVertices=0;   // zero pontos
-	tipoPoligono = GL_POINTS;
+	poligonoJaDesenhado = 0;
+	pontosCriados = 0;
+	tipoDesenhoPoligono = GL_POINTS;
 
-	for(i=0; i<MAXVERTEXS; i++)
+	for (i = 0; i < MAX_VERTICES_DO_POLIGONO; i++)
 	{
-		pvertex[i].v[0] = 0.0f;
-		pvertex[i].v[1] = 0.0f;
-		pvertex[i].v[2] = 0.0f;
+		poligono[i].v[0] = 0.0f;
+		poligono[i].v[1] = 0.0f;
+		poligono[i].v[2] = 0.0f;
 	}
 }
 
-static void Reshape(int width, int height)
+// Funçao que redesenha o polígono dentro da tela
+void Reshape(int width, int height)
 {
-    windW = width/2;
-    windH = height/2;
+	windW = width / 2;
+	windH = height / 2;
 
-    glViewport(0, 0, width, height);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-//    gluPerspective(60.0, 1.0, 0.1, 1000.0);
-    gluOrtho2D(-windW, windW, -windH, windH);
+	glViewport(0, 0, width, height);
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	gluOrtho2D(-windW, windW, -windH, windH);
 
-    glMatrixMode(GL_MODELVIEW);
+	glMatrixMode(GL_MODELVIEW);
 }
 
-static void Key(unsigned char key, int x, int y)
+void DesenharEixo(void)
 {
-    switch (key) 
-	{
-      case 27:
-			exit(0);
-    }
-}
+	// Grossura da linha do eixo
+	glLineWidth(GROSSURA_DA_LINHA_DO_EIXO);
+	// Cor da linha do eixo
+	glColor3f(COR_DA_LINHA);
 
-void coord_line(void)
-{
-    glLineWidth(1);
-
-	glColor3f(1.0, 0.0, 0.0);
-
-	// vertical line
-
+	// Desenha o eixo X
 	glBegin(GL_LINE_STRIP);
-		glVertex2f(-windW, 0);
-		glVertex2f(windW, 0);
-    glEnd();
+	glVertex2f(-windW, 0);
+	glVertex2f(windW, 0);
+	glEnd();
 
-		glColor3f(0.0, 1.0, 0.0);
-
-	// horizontal line 
-
-    glBegin(GL_LINE_STRIP);
-		glVertex2f(0, -windH);
-		glVertex2f(0, windH);
-    glEnd();
+	// Desenha o eixo Y
+	glBegin(GL_LINE_STRIP);
+	glVertex2f(0, -windH);
+	glVertex2f(0, windH);
+	glEnd();
 }
 
-void PolygonDraw(void)
+void DesenharPoligono(void)
 {
-	int i;
+	int vertice;
 
-	glColor3f(0.0, 0.0, 0.0); 
+	glColor3f(COR_DO_POLIGONO);
+	glPolygonMode(GL_FRONT_AND_BACK, tipoDesenhoPoligono);
 
-	glPolygonMode(GL_FRONT_AND_BACK, tipoPoligono);
-
-	glBegin(tipoPoligono);
-	for(i=0; i<nVertices; i++)
+	glBegin(tipoDesenhoPoligono);
+	for (vertice = 0; vertice < pontosCriados; vertice++)
 	{
-		glVertex2fv(pvertex[i].v);
+		glVertex2fv(poligono[vertice].v);
 	}
 	glEnd();
 }
 
-static void Draw(void)
+static void DesenharTudo(void)
 {
-    glClearColor(1.0, 1.0, 1.0, 0.0); 
-    glClear(GL_COLOR_BUFFER_BIT);
+	glClearColor(COR_DE_FUNDO);
+	glClear(GL_COLOR_BUFFER_BIT);
 
-	coord_line();
+	DesenharEixo();
+	DesenharPoligono();
 
-	PolygonDraw();
-
-    if (doubleBuffer) 
-	{
-	   glutSwapBuffers(); 
-    } else {
-	   glFlush();     
-    }
+	if (doubleBuffer)
+		glutSwapBuffers();
+	else
+		glFlush();
 }
 
-void processMenuEvents(int option) 
+void processMenuEvents(int option)
 {
-	switch (option) 
+	switch (option)
 	{
-		case 2 : 
-			init();
-			break;
+	case 2:
+		InicializarPoligono();
+		break;
 	}
 	glutPostRedisplay();
 }
 
-void processSubMenuEvents(int option) 
+void processSubMenuEvents(int option)
 {
-	if(option == 0)
-		tipoPoligono = GL_POINTS;
-	else
-		if (option == 1)
-		{
-			tipoPoligono = GL_LINE_LOOP;
-			jaPoligono = 1;
-        }
+	if (option == 0)
+		tipoDesenhoPoligono = GL_POINTS;
+	else if (option == 1)
+	{
+		tipoDesenhoPoligono = GL_LINE_LOOP;
+		poligonoJaDesenhado = 1;
+	}
 
 	glutPostRedisplay();
 }
 
-
 static void Args(int argc, char **argv)
 {
-    GLint i;
+	GLint i;
 
-    doubleBuffer = GL_FALSE;
+	doubleBuffer = GL_FALSE;
 
-    for (i = 1; i < argc; i++) 
+	for (i = 1; i < argc; i++)
 	{
-	   if (strcmp(argv[i], "-sb") == 0)   
-	   {
-	      doubleBuffer = GL_FALSE;
-	   } else if (strcmp(argv[i], "-db") == 0) 
-	   {
-	      doubleBuffer = GL_TRUE;
-	   }
-    }
+		if (strcmp(argv[i], "-sb") == 0)
+		{
+			doubleBuffer = GL_FALSE;
+		}
+		else if (strcmp(argv[i], "-db") == 0)
+		{
+			doubleBuffer = GL_TRUE;
+		}
+	}
 }
 
-void createGLUTMenus() 
+void createGLUTMenus()
 {
-	int menu,submenu;
+	int menu, submenu;
 
 	submenu = glutCreateMenu(processSubMenuEvents);
-	glutAddMenuEntry("Pontos",0);
-	glutAddMenuEntry("Poligono",1);
+	glutAddMenuEntry("Pontos", 0);
+	glutAddMenuEntry("Poligono", 1);
 
 	menu = glutCreateMenu(processMenuEvents);
-	glutAddMenuEntry("Limpar",2);
-	glutAddSubMenu("Tipo Objeto",submenu);
+	glutAddMenuEntry("Limpar", 2);
+	glutAddSubMenu("Tipo Objeto", submenu);
 	glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
 void motion(int x, int y)
 {
-
 }
 
 void mouse(int button, int state, int x, int y)
-{ 
+{
 
-	if(state == GLUT_UP)
+	if (state == GLUT_UP)
 	{
-        printf("\n jaPoligono %d ", jaPoligono);
-		if(button == GLUT_LEFT_BUTTON) 
+		printf("\n poligonoJaDesenhado %d ", poligonoJaDesenhado);
+		if (button == GLUT_LEFT_BUTTON)
 		{
-			if(jaPoligono==0)
+			if (poligonoJaDesenhado == 0)
 			{
-				x = x - windW; 
+				x = x - windW;
 				y = windH - y;
 
-//				glColor3f(0.0, 1.0, 0.0);
+				//				glColor3f(0.0, 1.0, 0.0);
 				glPointSize(3);
-//				glBegin(GL_POINTS); 
-//				glVertex2i(x, y);
-//				glEnd();
+				//				glBegin(GL_POINTS);
+				//				glVertex2i(x, y);
+				//				glEnd();
 
-				pvertex[nVertices].v[0] = (float)x;
-				pvertex[nVertices].v[1] = (float)y;
-				nVertices++;
+				poligono[pontosCriados].v[0] = (float)x;
+				poligono[pontosCriados].v[1] = (float)y;
+				pontosCriados++;
 			}
 			else
 			{
-                
-            }
-		} 
-		else 
-		if(button == GLUT_RIGHT_BUTTON)
-		{
-			if(nVertices>0)
-			{
-				jaPoligono = 1;
-				tipoPoligono = GL_LINE;
 			}
-		}		
+		}
+		else if (button == GLUT_RIGHT_BUTTON)
+		{
+			if (pontosCriados > 0)
+			{
+				poligonoJaDesenhado = 1;
+				tipoDesenhoPoligono = GL_LINE;
+			}
+		}
 	}
 	glutPostRedisplay();
 }
 
 int main(int argc, char **argv)
 {
-    GLenum type; 
+	GLenum type;
 
-    glutInit(&argc, argv);
-    Args(argc, argv);
+	glutInit(&argc, argv);
+	Args(argc, argv);
 
-    type = GLUT_RGB;
-    type |= (doubleBuffer) ? GLUT_DOUBLE : GLUT_SINGLE;
+	type = GLUT_RGB;
+	type |= (doubleBuffer) ? GLUT_DOUBLE : GLUT_SINGLE;
 
-    glutInitDisplayMode(type);
-    glutInitWindowSize(600, 500);
-    glutCreateWindow("Basic Program Using Glut and Gl");
+	glutInitDisplayMode(type);
+	glutInitWindowSize(600, 500);
+	glutCreateWindow("Basic Program Using Glut and Gl");
 
-	init();
+	InicializarPoligono();
 
-    glutReshapeFunc(Reshape);
-    glutKeyboardFunc(Key);
-    glutDisplayFunc(Draw);
+	glutReshapeFunc(Reshape);
+	glutDisplayFunc(DesenharTudo);
 
 	glutMotionFunc(motion);
 	glutMouseFunc(mouse);
-//	glutIdleFunc(idle);
+	//	glutIdleFunc(idle);
 
+	createGLUTMenus();
 
-	createGLUTMenus();  
-
-    glutMainLoop();
+	glutMainLoop();
 
 	return (0);
 }
