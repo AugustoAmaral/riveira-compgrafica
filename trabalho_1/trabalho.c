@@ -16,8 +16,9 @@ GLenum doubleBuffer;
 
 // Escopo de variaveis globais
 
-// 0 = Pontos | 1 = Poligono
-int modoDoDesenho = 0;
+// GL_POINTS = Pontos | GL_LINE_LOOP = Poligono
+int modoDoDesenho = GL_POINTS;
+
 int quantidadeDePontos = 0;
 int operacaoSelecionada = 0;
 
@@ -71,13 +72,13 @@ void MenuDesenhos(int opcao)
     switch (opcao)
     {
     case 0:
-        modoDoDesenho = 0;
+        modoDoDesenho = GL_POINTS;
         break;
     case 1:
-        modoDoDesenho = 1;
+        modoDoDesenho = GL_LINE_LOOP;
         break;
     case 2:
-        modoDoDesenho = 0;
+        modoDoDesenho = GL_POINTS;
         quantidadeDePontos = 0;
         break;
     }
@@ -86,7 +87,7 @@ void MenuDesenhos(int opcao)
 
 void MenuOperacoes(int opcao)
 {
-    if (modoDoDesenho == 0)
+    if (modoDoDesenho == GL_POINTS)
         operacaoSelecionada = opcao;
 };
 
