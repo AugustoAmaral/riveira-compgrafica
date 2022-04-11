@@ -13,8 +13,19 @@ GLenum doubleBuffer;
 
 #define GROSSURA_DA_LINHA_DO_EIXO 1
 #define COR_DA_LINHA 1.0, 0.0, 0.0
+#define COR_DO_PONTO 0.0, 0.0, 0.0
+
+#define TAMANHO_DO_PONTO 5
+#define MAXIMO_DE_PONTOS 10
 
 // Escopo de variaveis globais
+
+struct ponto
+{
+    float x;
+    float y;
+    float z;
+} pontos[MAXIMO_DE_PONTOS];
 
 // GL_POINTS = Pontos | GL_LINE_LOOP = Poligono
 int modoDoDesenho = GL_POINTS;
@@ -30,6 +41,30 @@ void Reshape(void)
     glLoadIdentity();
     gluOrtho2D(-LARGURA_TELA_X / 2, LARGURA_TELA_X / 2, -ALTURA_TELA_Y / 2, ALTURA_TELA_Y / 2);
     glMatrixMode(GL_MODELVIEW);
+}
+
+float *GerarVetorDePontos(float x, float y, float z)
+{
+    float *vetor = (float *)malloc(3 * sizeof(float));
+    vetor[0] = x;
+    vetor[1] = y;
+    vetor[2] = z;
+    return vetor;
+}
+
+void DesenharPoligono(void)
+{
+    int vertice;
+
+    glColor3f(COR_DO_PONTO);
+    glPolygonMode(GL_FRONT_AND_BACK, modoDoDesenho);
+
+    glBegin(modoDoDesenho);
+    for (vertice = 0; vertice < quantidadeDePontos; vertice++)
+    {
+        glVertex2fv(GerarVetorDePontos(pontos[vertice].x, pontos[vertice].y, pontos[vertice].z));
+    }
+    glEnd();
 }
 
 void DesenharEixos(void)
@@ -58,6 +93,7 @@ void PreencherTela(void)
     glClear(GL_COLOR_BUFFER_BIT);
 
     DesenharEixos();
+    DesenharPoligono();
 
     if (doubleBuffer)
         glutSwapBuffers();
@@ -113,6 +149,34 @@ void CriarMenus(void)
     glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
+/**
+ * @brief Função responsavel para realizar interações do mouse
+ * Caso poligono não esteja desenhado, adicionar ponto na tela
+ * Caso contrario, selecionar vertice proxima caso exista
+ *
+ * @param button
+ * @param state
+ * @param x
+ * @param y
+ */
+void Mouse(int button, int state, int x, int y)
+{
+    if (state == GLUT_UP)
+    {
+        if (button == GLUT_LEFT_BUTTON)
+        {
+            if (modoDoDesenho == 0)
+            {
+                glPointSize(TAMANHO_DO_PONTO);
+                pontos[quantidadeDePontos].x = (float)(x) - (LARGURA_TELA_X / 2);
+                pontos[quantidadeDePontos].y = (ALTURA_TELA_Y / 2) - (float)(y);
+                quantidadeDePontos++;
+            }
+        }
+    }
+    glutPostRedisplay();
+}
+
 int main(int argc, char **argv)
 {
     // Inicia o glut
@@ -129,6 +193,8 @@ int main(int argc, char **argv)
     glutReshapeFunc(Reshape);
     // Cria o desenho inicial na tela
     glutDisplayFunc(PreencherTela);
+
+    glutMouseFunc(Mouse);
     // Criar os menus do gluth
     CriarMenus();
 
