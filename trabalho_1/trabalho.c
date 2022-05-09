@@ -165,7 +165,7 @@ void Mouse(int button, int state, int x, int y)
     {
         if (button == GLUT_LEFT_BUTTON)
         {
-            if (modoDoDesenho == 0)
+            if (modoDoDesenho == GL_POINTS)
             {
                 glPointSize(TAMANHO_DO_PONTO);
                 pontos[quantidadeDePontos].x = (float)(x) - (LARGURA_TELA_X / 2);
