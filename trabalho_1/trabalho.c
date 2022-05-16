@@ -18,6 +18,11 @@ GLenum doubleBuffer;
 #define TAMANHO_DO_PONTO 5
 #define MAXIMO_DE_PONTOS 10
 
+// Util para seleção de ponto
+#define LIMITE_DISTANCIA_MOUSE_VERTICE 10.0
+#define COR_DA_VERTICE_SELECIONADA 0.0, 1.0, 0.0
+#define TAMANHO_FEEDBACK_VERTICE_SELECIONADA 5
+
 // Escopo de variaveis globais
 
 struct ponto
@@ -32,6 +37,7 @@ int modoDoDesenho = GL_POINTS;
 
 int quantidadeDePontos = 0;
 int operacaoSelecionada = 0;
+int verticeSelecionado = -1;
 
 // Funçao que redesenha o polígono dentro da tela
 void Reshape(void)
@@ -87,6 +93,14 @@ void DesenharEixos(void)
     glEnd();
 }
 
+void DesenharPontoNoVertice(void)
+{
+    glColor3f(COR_DA_VERTICE_SELECIONADA);
+    glPointSize(TAMANHO_FEEDBACK_VERTICE_SELECIONADA);
+    glBegin(GL_POINTS);
+    glVertex2fv(GerarVetorDePontos(pontos[verticeSelecionado].x, pontos[verticeSelecionado].y, pontos[verticeSelecionado].z));
+}
+
 void PreencherTela(void)
 {
     glClearColor(COR_DE_FUNDO);
@@ -94,6 +108,8 @@ void PreencherTela(void)
 
     DesenharEixos();
     DesenharPoligono();
+    if (verticeSelecionado > -1)
+        DesenharPontoNoVertice();
 
     if (doubleBuffer)
         glutSwapBuffers();
@@ -149,6 +165,23 @@ void CriarMenus(void)
     glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
+int SelecionarVertice(int posX, int posY)
+{
+    printf("Estou aqui %d %d %d\n", posX, posY, verticeSelecionado);
+    int vertice;     // Vertice a ser checada
+    float distancia; // valor da distancia calculada entre o clique e o vertice
+    verticeSelecionado = -1;
+
+    for (vertice = 0; vertice < quantidadeDePontos; vertice++)
+    {
+        distancia = sqrt(pow((pontos[vertice].x - posX), 2.0) + pow((pontos[vertice].y - posY), 2.0));
+        if (distancia < LIMITE_DISTANCIA_MOUSE_VERTICE)
+        {
+            verticeSelecionado = vertice;
+            break;
+        }
+    }
+}
 /**
  * @brief Função responsavel para realizar interações do mouse
  * Caso poligono não esteja desenhado, adicionar ponto na tela
@@ -165,16 +198,23 @@ void Mouse(int button, int state, int x, int y)
     {
         if (button == GLUT_LEFT_BUTTON)
         {
+            float posX = (float)(x) - (LARGURA_TELA_X / 2);
+            float posY = (ALTURA_TELA_Y / 2) - (float)(y);
             if (modoDoDesenho == GL_POINTS)
             {
                 glPointSize(TAMANHO_DO_PONTO);
-                pontos[quantidadeDePontos].x = (float)(x) - (LARGURA_TELA_X / 2);
-                pontos[quantidadeDePontos].y = (ALTURA_TELA_Y / 2) - (float)(y);
+                pontos[quantidadeDePontos].x = posX;
+                pontos[quantidadeDePontos].y = posY;
                 quantidadeDePontos++;
+            }
+            else
+            {
+                // Resetar o vertice selecionado
+                SelecionarVertice(posX, posY);
             }
         }
     }
-    glutPostRedisplay();
+    PreencherTela();
 }
 
 int main(int argc, char **argv)

@@ -1,0 +1,7 @@
+#Objetos
+#quantObjs 1
+#Arquivo02 data/dadosObj1.txt
+#cor 1.0 0.0 0.5 0.0
+#posicao -20.0 0.0 -50.0
+#orientacao 00.0 0.0 0.0
+#escala 0.6
