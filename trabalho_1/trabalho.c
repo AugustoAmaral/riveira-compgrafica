@@ -4,112 +4,131 @@
 #include <math.h>
 #include "GL/glut.h"
 
+#define MAXIMO_DE_VERTICES 30 // numero maximo de v�rtices do poligono (espa�o disponivel)
+#define PI 3.141572
+
+// Distancia maxima entre o clique do mouse do usuário e o vértice do poligono
+#define DISTANCIA_MAXIMA_SELECIONAR_VERTICE 10.0
+
 GLenum doubleBuffer;
 
-#define LARGURA_TELA_X 800 // largura da tela
-#define ALTURA_TELA_Y 600  // altura da tela
-#define TITULO_TELA "Trabalho do riveira"
-#define COR_DE_FUNDO 1.0, 1.0, 1.0, 0.0
-
-#define GROSSURA_DA_LINHA_DO_EIXO 1
-#define COR_DA_LINHA 1.0, 0.0, 0.0
-#define COR_DO_PONTO 0.0, 0.0, 0.0
-
-#define TAMANHO_DO_PONTO 5
-#define MAXIMO_DE_PONTOS 10
-
-// Util para seleção de ponto
-#define LIMITE_DISTANCIA_MOUSE_VERTICE 10.0
-#define COR_DA_VERTICE_SELECIONADA 0.0, 1.0, 0.0
-#define TAMANHO_FEEDBACK_VERTICE_SELECIONADA 5
-
-// Escopo de variaveis globais
-
-struct ponto
+struct poligono
 {
-    float x;
-    float y;
-    float z;
-} pontos[MAXIMO_DE_PONTOS];
+    float v[3];
+} pontos[MAXIMO_DE_VERTICES];
 
-// GL_POINTS = Pontos | GL_LINE_LOOP = Poligono
-int modoDoDesenho = GL_POINTS;
+// pontos poligonos
+int numeroDeVertices = 0;
+int poligonoJaDesenhado = 0;
+//-----------------
 
-int quantidadeDePontos = 0;
-int operacaoSelecionada = 0;
-int verticeSelecionado = -1;
+int tamanhoDaJanelaX, tamanhoDaJanelaY; // comprimento da janela: Width  e Height
 
-// Funçao que redesenha o polígono dentro da tela
-void Reshape(void)
+int operacaoSelecionada = 0;         // tipo de operacao: O: gera poligono; 1: transalacao; 2:...
+int tipoDoPoligono;                  // poligo por vertices ou por arestas
+int indiceDoVerticeSelecionado = -1; // numero de v�rtices do poligono definido
+int numeroDePontosCriados = 0;
+float anguloDeRotacao = 0.0f; // angulo para rotacao
+float matrizDeBase[3][3];
+
+int SelecionarVertice(int x, int y)
 {
-    glViewport(0, 0, LARGURA_TELA_X, ALTURA_TELA_Y);
+    int contador;
+    float distancia;
+    indiceDoVerticeSelecionado = -1;
+    for (contador = 0; contador < numeroDePontosCriados; contador++)
+    {
+        distancia = sqrt(pow((pontos[contador].v[0] - x), 2.0) + pow((pontos[contador].v[1] - y), 2.0));
+        if (distancia < DISTANCIA_MAXIMA_SELECIONAR_VERTICE)
+        {
+            indiceDoVerticeSelecionado = contador;
+            break;
+        }
+    }
+    return indiceDoVerticeSelecionado;
+}
+
+void init(void)
+{
+    int i;
+    tipoDoPoligono = GL_POINTS;
+    poligonoJaDesenhado = 0;
+    numeroDeVertices = 0;
+    numeroDePontosCriados = 0;
+
+    for (i = 0; i < MAXIMO_DE_VERTICES; i++)
+    {
+        pontos[i].v[0] = 0.0f;
+        pontos[i].v[1] = 0.0f;
+        pontos[i].v[2] = 1.0f;
+    }
+
+    anguloDeRotacao = (2.0f * PI) / 180.0f;
+}
+
+static void Reshape(int cumprimento, int altura)
+{
+    tamanhoDaJanelaX = cumprimento / 2;
+    tamanhoDaJanelaY = altura / 2;
+
+    glViewport(0, 0, cumprimento, altura);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluOrtho2D(-LARGURA_TELA_X / 2, LARGURA_TELA_X / 2, -ALTURA_TELA_Y / 2, ALTURA_TELA_Y / 2);
+    gluOrtho2D(-tamanhoDaJanelaX, tamanhoDaJanelaX, -tamanhoDaJanelaY, tamanhoDaJanelaY);
+
     glMatrixMode(GL_MODELVIEW);
-}
-
-float *GerarVetorDePontos(float x, float y, float z)
-{
-    float *vetor = (float *)malloc(3 * sizeof(float));
-    vetor[0] = x;
-    vetor[1] = y;
-    vetor[2] = z;
-    return vetor;
-}
-
-void DesenharPoligono(void)
-{
-    int vertice;
-
-    glColor3f(COR_DO_PONTO);
-    glPolygonMode(GL_FRONT_AND_BACK, modoDoDesenho);
-
-    glBegin(modoDoDesenho);
-    for (vertice = 0; vertice < quantidadeDePontos; vertice++)
-    {
-        glVertex2fv(GerarVetorDePontos(pontos[vertice].x, pontos[vertice].y, pontos[vertice].z));
-    }
-    glEnd();
 }
 
 void DesenharEixos(void)
 {
-    // Grossura da linha do eixo
-    glLineWidth(GROSSURA_DA_LINHA_DO_EIXO);
-    // Cor da linha do eixo
-    glColor3f(COR_DA_LINHA);
+    glLineWidth(1);
 
-    // Desenha o eixo X
+    // vertical line
     glBegin(GL_LINE_STRIP);
-    glVertex2f(-LARGURA_TELA_X, 0);
-    glVertex2f(LARGURA_TELA_X, 0);
+    glColor3f(1.0, 0.0, 0.0);
+    glVertex2f(-tamanhoDaJanelaX, 0);
+    glVertex2f(tamanhoDaJanelaX, 0);
     glEnd();
 
-    // Desenha o eixo Y
+    // horizontal line
+
     glBegin(GL_LINE_STRIP);
-    glVertex2f(0, -ALTURA_TELA_Y);
-    glVertex2f(0, ALTURA_TELA_Y);
+    glColor3f(0.0, 0.0, 1.0);
+    glVertex2f(0, -tamanhoDaJanelaY);
+    glVertex2f(0, tamanhoDaJanelaY);
     glEnd();
 }
 
-void DesenharPontoNoVertice(void)
+void DesenharPoligono(void)
 {
-    glColor3f(COR_DA_VERTICE_SELECIONADA);
-    glPointSize(TAMANHO_FEEDBACK_VERTICE_SELECIONADA);
-    glBegin(GL_POINTS);
-    glVertex2fv(GerarVetorDePontos(pontos[verticeSelecionado].x, pontos[verticeSelecionado].y, pontos[verticeSelecionado].z));
+    int contador;
+
+    glColor3f(0.0, 0.0, 0.0);
+    glPolygonMode(GL_FRONT_AND_BACK, tipoDoPoligono);
+
+    glBegin(tipoDoPoligono);
+    for (contador = 0; contador < numeroDePontosCriados; contador++)
+        glVertex2fv(pontos[contador].v);
+
+    glEnd();
 }
 
-void PreencherTela(void)
+void DesenharTela(void)
 {
-    glClearColor(COR_DE_FUNDO);
+    glClearColor(1.0, 1.0, 1.0, 0.0);
     glClear(GL_COLOR_BUFFER_BIT);
 
     DesenharEixos();
     DesenharPoligono();
-    if (verticeSelecionado > -1)
-        DesenharPontoNoVertice();
+
+    if (indiceDoVerticeSelecionado > -1)
+    {
+        glColor3f(1.0, 0.0, 0.0);
+        glPointSize(3);
+        glBegin(GL_POINTS);
+        glVertex2fv(pontos[indiceDoVerticeSelecionado].v);
+        glEnd();
+    }
 
     if (doubleBuffer)
         glutSwapBuffers();
@@ -117,127 +136,302 @@ void PreencherTela(void)
         glFlush();
 }
 
-void InicializarMenu(void){};
-
-void MenuDesenhos(int opcao)
+void procegVertMenuEvents(int option)
 {
-    switch (opcao)
+    switch (option)
     {
-    case 0:
-        modoDoDesenho = GL_POINTS;
-        break;
     case 1:
-        modoDoDesenho = GL_LINE_LOOP;
+    {
+        tipoDoPoligono = GL_LINE_LOOP;
+        poligonoJaDesenhado = 1;
         break;
+    }
     case 2:
-        modoDoDesenho = GL_POINTS;
-        quantidadeDePontos = 0;
+        init();
         break;
     }
     glutPostRedisplay();
-};
+}
 
-void MenuOperacoes(int opcao)
+void subMenuEvents(int option)
 {
-    if (modoDoDesenho == GL_POINTS)
-        operacaoSelecionada = opcao;
-};
+    operacaoSelecionada = option;
+    glutPostRedisplay();
+}
 
-void CriarMenus(void)
+void createGLUTMenus()
 {
-    int menuDeDesenho = glutCreateMenu(MenuDesenhos);
-    glutAddMenuEntry("Fazer pontos", 0);
-    glutAddMenuEntry("Desenhar poligono", 1);
-    glutAddMenuEntry("Limpar pontos", 2);
+    int menu, submenu;
 
-    int menuDeOperacoes = glutCreateMenu(MenuOperacoes);
-    glutAddMenuEntry("Deselecionar", 0);
-    glutAddMenuEntry("Mover", 1);
-    glutAddMenuEntry("Rotacionar", 2);
-    glutAddMenuEntry("Escalar", 3);
-    glutAddMenuEntry("Cisalhar", 4);
+    submenu = glutCreateMenu(subMenuEvents);
+    glutAddMenuEntry("Translation", 1);
+    glutAddMenuEntry("Rotation", 2);
+    glutAddMenuEntry("Scale", 3);
+    glutAddMenuEntry("Shear", 4);
+    glutAddMenuEntry("Reflection", 5);
 
-    glutCreateMenu(InicializarMenu);
-    glutAddMenuEntry("Menu de operacoes", 0);
-    glutAddSubMenu("Desenhar Objeto", menuDeDesenho);
-    glutAddSubMenu("Transformar", menuDeOperacoes);
+    menu = glutCreateMenu(procegVertMenuEvents);
+    glutAddMenuEntry("Limpar", 2);
+    glutAddMenuEntry("Gerar poligno", 1);
 
+    glutAddSubMenu("Transformation", submenu);
     glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
-int SelecionarVertice(int posX, int posY)
+void DefinirMatrizIdentidade(void)
 {
-    printf("Estou aqui %d %d %d\n", posX, posY, verticeSelecionado);
-    int vertice;     // Vertice a ser checada
-    float distancia; // valor da distancia calculada entre o clique e o vertice
-    verticeSelecionado = -1;
+    matrizDeBase[0][0] = 1.0f;
+    matrizDeBase[0][1] = 0.0f;
+    matrizDeBase[0][2] = 0.0f;
+    matrizDeBase[1][0] = 0.0f;
+    matrizDeBase[1][1] = 1.0f;
+    matrizDeBase[1][2] = 0.0f;
+    matrizDeBase[2][0] = 0.0f;
+    matrizDeBase[2][1] = 0.0f;
+    matrizDeBase[2][2] = 1.0f;
+}
 
-    for (vertice = 0; vertice < quantidadeDePontos; vertice++)
+void CalcularCentro(float cc[])
+{
+    int i;
+    cc[0] = cc[1] = cc[2] = 0.0f;
+    for (i = 0; i < numeroDePontosCriados; i++)
     {
-        distancia = sqrt(pow((pontos[vertice].x - posX), 2.0) + pow((pontos[vertice].y - posY), 2.0));
-        if (distancia < LIMITE_DISTANCIA_MOUSE_VERTICE)
+        cc[0] += pontos[i].v[0];
+        cc[1] += pontos[i].v[1];
+        cc[2] += pontos[i].v[2];
+    }
+    cc[0] /= numeroDePontosCriados;
+    cc[1] /= numeroDePontosCriados;
+    cc[2] /= numeroDePontosCriados;
+}
+
+void TransformarNoPonto(int position)
+{
+    float pontoTemporario[3];
+    int i, j;
+
+    for (i = 0; i < 3; i++)
+    {
+        pontoTemporario[i] = 0.0f;
+        for (j = 0; j < 3; j++)
+            pontoTemporario[i] = pontoTemporario[i] + matrizDeBase[i][j] * pontos[position].v[j];
+    }
+
+    for (i = 0; i < 3; i++)
+        pontos[position].v[i] = pontoTemporario[i];
+}
+
+void TransladarPonto(float dx, float dy)
+{
+    DefinirMatrizIdentidade();
+
+    matrizDeBase[0][2] = dx;
+    matrizDeBase[1][2] = dy;
+
+    for (int i = 0; i < numeroDePontosCriados; i++)
+        TransformarNoPonto(i);
+}
+
+void Rotacionar(float dx, float dy)
+{
+    int i;
+    float oo, teta, vc[3];
+
+    CalcularCentro(vc);
+    TransladarPonto(-1 * vc[0], -1 * vc[1]);
+
+    oo = pontos[indiceDoVerticeSelecionado].v[1] * dx - pontos[indiceDoVerticeSelecionado].v[0] * dy;
+    teta = anguloDeRotacao;
+    if (oo > 0.0f)
+        teta = -1.0f * anguloDeRotacao;
+
+    DefinirMatrizIdentidade();
+
+    matrizDeBase[0][0] = cos(teta);
+    matrizDeBase[0][1] = -sin(teta);
+    matrizDeBase[1][0] = sin(teta);
+    matrizDeBase[1][1] = cos(teta);
+
+    for (i = 0; i < numeroDePontosCriados; i++)
+        TransformarNoPonto(i);
+
+    TransladarPonto(vc[0], vc[1]);
+}
+
+void Escalar(float dx, float dy)
+{
+
+    int i;
+    float vc[3], Sx, Sy;
+
+    CalcularCentro(vc);
+    TransladarPonto(-1 * vc[0], -1 * vc[1]);
+
+    Sx = Sy = 1.0f;
+    if (fabs(pontos[indiceDoVerticeSelecionado].v[0]) > 0.01f)
+        Sx = 1.0f + dx / pontos[indiceDoVerticeSelecionado].v[0];
+
+    if (fabs(pontos[indiceDoVerticeSelecionado].v[1]) > 0.01f)
+        Sy = 1.0f + dy / pontos[indiceDoVerticeSelecionado].v[1];
+
+    DefinirMatrizIdentidade();
+    matrizDeBase[0][0] = Sx;
+    matrizDeBase[1][1] = Sy;
+
+    for (i = 0; i < numeroDePontosCriados; i++)
+        TransformarNoPonto(i);
+
+    TransladarPonto(vc[0], vc[1]);
+}
+
+void Cisalhar(float dx, float dy)
+{
+    int i;
+    float Sx, Sy, vc[3];
+
+    CalcularCentro(vc);
+    TransladarPonto(-1 * vc[0], -1 * vc[1]);
+
+    Sx = 0;
+    Sy = 0;
+    if (dx > dy)
+    {
+        if (fabs(pontos[indiceDoVerticeSelecionado].v[0]) > 0.1f)
+            Sx = (dx / pontos[indiceDoVerticeSelecionado].v[1]) / 5;
+    }
+    if (dy > dx)
+    {
+        if (fabs(pontos[indiceDoVerticeSelecionado].v[1]) > 0.1f)
+            Sy = (dy / pontos[indiceDoVerticeSelecionado].v[0]) / 5;
+    }
+
+    DefinirMatrizIdentidade();
+    matrizDeBase[0][1] = Sx;
+    matrizDeBase[1][0] = Sy;
+
+    for (i = 0; i < numeroDePontosCriados; i++)
+        TransformarNoPonto(i);
+
+    TransladarPonto(vc[0], vc[1]);
+}
+
+void Refletir(float dx, float dy)
+{
+
+    int i;
+    float vc[3];
+
+    CalcularCentro(vc);
+    TransladarPonto(-1 * vc[0], -1 * vc[1]);
+    DefinirMatrizIdentidade();
+
+    if (fabs(dx) > fabs(dy))
+    {
+        matrizDeBase[0][0] = -1;
+        matrizDeBase[1][1] = 1;
+    }
+    if (fabs(dy) > fabs(dx))
+    {
+        matrizDeBase[0][0] = 1;
+        matrizDeBase[1][1] = -1;
+    }
+
+    for (i = 0; i < numeroDePontosCriados; i++)
+        TransformarNoPonto(i);
+
+    TransladarPonto(vc[0], vc[1]);
+}
+
+void FuncaoDeMovimentacao(int x, int y)
+{
+    int i;
+    float dx, dy;
+    if (indiceDoVerticeSelecionado > -1)
+    {
+        x = x - tamanhoDaJanelaX;
+        y = tamanhoDaJanelaY - y;
+        dx = x - pontos[indiceDoVerticeSelecionado].v[0];
+        dy = y - pontos[indiceDoVerticeSelecionado].v[1];
+        switch (operacaoSelecionada)
         {
-            verticeSelecionado = vertice;
+        case 1:
+            TransladarPonto(dx, dy);
+            break;
+        case 2:
+            Rotacionar(dx, dy);
+            break;
+        case 3:
+            Escalar(dx, dy);
+            break;
+        case 4:
+            Cisalhar(dx, dy);
+            break;
+        case 5:
+            Refletir(x, y);
             break;
         }
+        DesenharTela();
     }
 }
-/**
- * @brief Função responsavel para realizar interações do mouse
- * Caso poligono não esteja desenhado, adicionar ponto na tela
- * Caso contrario, selecionar vertice proxima caso exista
- *
- * @param button
- * @param state
- * @param x
- * @param y
- */
+
 void Mouse(int button, int state, int x, int y)
 {
+
     if (state == GLUT_UP)
     {
         if (button == GLUT_LEFT_BUTTON)
         {
-            float posX = (float)(x) - (LARGURA_TELA_X / 2);
-            float posY = (ALTURA_TELA_Y / 2) - (float)(y);
-            if (modoDoDesenho == GL_POINTS)
+            if (poligonoJaDesenhado == 0)
             {
-                glPointSize(TAMANHO_DO_PONTO);
-                pontos[quantidadeDePontos].x = posX;
-                pontos[quantidadeDePontos].y = posY;
-                quantidadeDePontos++;
+                x = x - tamanhoDaJanelaX;
+                y = tamanhoDaJanelaY - y;
+
+                glPointSize(3);
+
+                pontos[numeroDePontosCriados].v[0] = (float)x;
+                pontos[numeroDePontosCriados].v[1] = (float)y;
+                pontos[numeroDePontosCriados].v[2] = 1.0f;
+                numeroDePontosCriados++;
+                indiceDoVerticeSelecionado = (SelecionarVertice(x, y));
             }
-            else
+        }
+        else if (button == GLUT_RIGHT_BUTTON)
+        {
+            if (numeroDeVertices > 0)
             {
-                // Resetar o vertice selecionado
-                SelecionarVertice(posX, posY);
+                poligonoJaDesenhado = 1;
+                tipoDoPoligono = GL_LINE;
             }
         }
     }
-    PreencherTela();
+    glutPostRedisplay();
 }
 
 int main(int argc, char **argv)
 {
-    // Inicia o glut
     GLenum type;
+
     glutInit(&argc, argv);
+
     type = GLUT_RGB;
     type |= (doubleBuffer) ? GLUT_DOUBLE : GLUT_SINGLE;
-    glutInitDisplayMode(type);
-    // Cria a tela
-    glutInitWindowSize(LARGURA_TELA_X, ALTURA_TELA_Y);
-    // Define o título da tela
-    glutCreateWindow(TITULO_TELA);
-    // Remodela a tela para desenhar pelo meio da tela
-    glutReshapeFunc(Reshape);
-    // Cria o desenho inicial na tela
-    glutDisplayFunc(PreencherTela);
 
+    glutInitDisplayMode(type);
+    glutInitWindowSize(1200, 800);
+    glutCreateWindow("Basic Program Using Glut and Gl");
+
+    init();
+
+    glutReshapeFunc(Reshape);
+    glutDisplayFunc(DesenharTela);
+
+    glutMotionFunc(FuncaoDeMovimentacao);
     glutMouseFunc(Mouse);
-    // Criar os menus do gluth
-    CriarMenus();
+
+    createGLUTMenus();
 
     glutMainLoop();
-    return 0;
+
+    return (0);
 }
