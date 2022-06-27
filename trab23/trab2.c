@@ -1,18 +1,12 @@
-// ------------------------------------------------------------------------------------
-// Trabalho: 
-//        - Geracao de superficie aberto 
-//        - Adi��o de operacoes: Escala, Rotacao, Translacao
-//        - Uso de Bases BSplines e CatmullRom
-//        - Eficiencia de realismo com triangulacao eficiente
-//        - Combinacao de cores e tonalidades
-//        - Supercicies com maior numero de patchs e formas variadas
-//        - Melhoria de controle de manupilacao (mouse? ao inves de teclado?)
-// ------------------------------------------------------------------------------------
-// Atender as 7 OBSERVACOES ....
-// ------------------------------------------------------------------------------------
-// Data de entrega e apresentacao: quarta 25 de fmaio
-// Trabalho individual (similares Uma nota dividda em numeo de similares)
-// -------------------------------------------------------------------------------------                 
+/**
+ * Uso de Bases BSplines e CatmullRom
+ * Adição de operacoes: Escala, Rotacao, Translacao
+ * Geracao de superficie aberto
+ * Combinacao de cores e tonalidades
+ * Supercicies com maior numero de patchs e formas variadas
+ * Melhoria de controle de manupilacao
+ * Eficiencia de realismo com triangulacao eficiente
+ */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -20,64 +14,58 @@
 
 #include <GL/glut.h>
 
-#define Linha -1
-#define Solido -2 
-#define Pontos -3
+/** Tipos de desenho */
+#define Line -1
+#define Solid -2
+#define Points -3
 
+/** ID dos eixos das dimensões */
 #define X 0
 #define Y 1
 #define Z 2
 #define W 3
 
-#define Escalar 4 // Redimensionar
-
+/** Funcoes de desenho */
+#define Escalar 4
 #define RotarX 5
 #define RotarY 6
 #define RotarZ 7
-
 #define TransladaX 8
 #define TransladaY 9
 #define TransladaZ 10
 
+/** Constantes de controle */
 #define PtsControle 19
-#define BEZIER      20
-#define BSPLINE     21
-#define CATMULLROM  22
-
+#define BEZIER 20
+#define BSPLINE 21
+#define CATMULLROM 22
 #define sair 0
 
-typedef float f4d[4];   // O tipo de dado f4d � um vetor de 4 elementos
-
+/** Estrutura de pontos */
+typedef float f4d[4];
 typedef struct st_matriz
 {
   int n, m;
-  f4d** ponto;
+  f4d **ponto;
 } matriz;
 
 int comando = RotarX;
-
 int tipoView = GL_LINE_STRIP;
 
-float local_scale = 0.22f;   // Valor de escala para apresentar no CANVAS
+float local_scale = 0.22f;
+float VARIA = 0.1f;
 
-float VARIA = 0.1f;         // variacao do parametros Ex. t = j * VARIA para j = 0, ....< n
-
-
-f4d matTransf[4];   // matriz transposta 4 x 4
-
-f4d MatBase[4];   // matriz de base 4x4
-
-f4d pView = { 10.0, 10.0, -20.0, 0.0 };
+f4d matTransf[4]; // Transposta 4 x 4
+f4d MatBase[4];   // Base 4x4
+f4d pView = {10.0, 10.0, -20.0, 0.0};
 
 int idCor;
 
-f4d vcolor[5] = { {1.0, 0.0, 0.0, 0.0},
-         {0.0, 1.0, 0.0, 0.0},
-         {0.0, 0.0, 1.0, 0.0},
-         {1.0, 1.0, 0.0, 0.0},
-         {0.0, 1.0, 1.0, 0.0}
-};
-
+f4d vcolor[5] = {{1.0, 0.0, 0.0, 0.0},
+                 {0.0, 1.0, 0.0, 0.0},
+                 {0.0, 0.0, 1.0, 0.0},
+                 {1.0, 1.0, 0.0, 0.0},
+                 {0.0, 1.0, 1.0, 0.0}};
 
 int windW, windH;
 int gIndVert = -1;
@@ -87,42 +75,13 @@ int yinicial;
 int xf;
 int yf;
 
-matriz* pControle = NULL;  // matriz de pontos de controle  LIDOS
+matriz *pControle = NULL;
+matriz *pcPatch = NULL;
+matriz *ptsPatch = NULL;
 
-matriz* pcPatch = NULL;    // matriz de pontos para um patch 
+/** Operacoes matriciais */
 
-matriz* ptsPatch = NULL;   // matriiz de PONTOS na superficie PATCH calclulados
-
-void DisenaSuperficie(void);
-
-void MontaMatrizBase(int tipoSup)
-{
-  if (tipoSup == BEZIER)
-  {
-    MatBase[0][0] = -1.0f; MatBase[0][1] = 3.0f;  MatBase[0][2] = -3.0f; MatBase[0][3] = 1.0f;
-    MatBase[1][0] = 3.0f; MatBase[1][1] = -6.0f; MatBase[1][2] = 3.0f; MatBase[1][3] = 0.0f;
-    MatBase[2][0] = -3.0f; MatBase[2][1] = 3.0f;  MatBase[2][2] = 0.0f; MatBase[2][3] = 0.0f;
-    MatBase[3][0] = 1.0f; MatBase[3][1] = 0.0f;  MatBase[3][2] = 0.0f; MatBase[3][3] = 0.0f;
-  }
-
-  if (tipoSup == BSPLINE)
-  {
-    MatBase[0][0] = -1.0f / 6.0;  MatBase[0][1] = 3.0f / 6.0;  MatBase[0][2] = -3.0f / 6.0;  MatBase[0][3] = 1.0f / 6.0;
-    MatBase[1][0] = 3.0f / 6.0; MatBase[1][1] = -6.0f / 6.0;   MatBase[1][2] = 3.0f / 6.0;   MatBase[1][3] = 0.0f;
-    MatBase[2][0] = -3.0f / 6.0;  MatBase[2][1] = 0.0f / 6.0;  MatBase[2][2] = 3.0f / 6.0;  MatBase[2][3] = 0.0f;
-    MatBase[3][0] = 1.0f / 6.0; MatBase[3][1] = 4.0f / 6.0;  MatBase[3][2] = 1.0f / 6.0; MatBase[3][3] = 0.0;
-  }
-
-  if (tipoSup == CATMULLROM)
-  {
-    MatBase[0][0] = -1.0f / 2.0; MatBase[0][1] = 3.0f / 2.0;  MatBase[0][2] = -3.0f / 2.0; MatBase[0][3] = 1.0f / 2.0;
-    MatBase[1][0] = 2.0f / 2.0; MatBase[1][1] = -5.0f / 2.0; MatBase[1][2] = 4.0f / 2.0; MatBase[1][3] = -1.0f / 2.0;
-    MatBase[2][0] = -1.0f / 2.0; MatBase[2][1] = 0.0f / 2.0;  MatBase[2][2] = 1.0f / 2.0; MatBase[2][3] = 0.0f / 2.0;
-    MatBase[3][0] = 0.0f / 2.0; MatBase[3][1] = 2.0f / 2.0;  MatBase[3][2] = 0.0f / 2.0; MatBase[3][3] = 0.0f / 2.0;
-  }
-}
-
-matriz* liberaMatriz(matriz* sup)
+matriz *liberaMatriz(matriz *sup) // Controle de memoria
 {
   int i;
 
@@ -137,12 +96,12 @@ matriz* liberaMatriz(matriz* sup)
   return NULL;
 }
 
-matriz* AlocaMatriz(int n, int m)
+matriz *AlocaMatriz(int n, int m)
 {
-  matriz* matTemp;
+  matriz *matTemp;
   int j;
 
-  if ((matTemp = (matriz*)malloc(sizeof(matriz))) == NULL)
+  if ((matTemp = (matriz *)malloc(sizeof(matriz))) == NULL)
   {
     printf("\n Error en alocacion de memoria para uma matriz");
     return 0;
@@ -150,12 +109,75 @@ matriz* AlocaMatriz(int n, int m)
 
   matTemp->n = n;
   matTemp->m = m;
-  matTemp->ponto = (f4d**)calloc(n, sizeof(f4d*));
+  matTemp->ponto = (f4d **)calloc(n, sizeof(f4d *));
 
   for (j = 0; j < matTemp->n; j++)
-    matTemp->ponto[j] = (f4d*)calloc(m, sizeof(f4d));
+    matTemp->ponto[j] = (f4d *)calloc(m, sizeof(f4d));
 
   return matTemp;
+}
+
+void AlterarTransformacao(int transformType)
+{
+  if (transformType == BEZIER)
+  {
+    MatBase[0][0] = -1.0f;
+    MatBase[0][1] = 3.0f;
+    MatBase[0][2] = -3.0f;
+    MatBase[0][3] = 1.0f;
+    MatBase[1][0] = 3.0f;
+    MatBase[1][1] = -6.0f;
+    MatBase[1][2] = 3.0f;
+    MatBase[1][3] = 0.0f;
+    MatBase[2][0] = -3.0f;
+    MatBase[2][1] = 3.0f;
+    MatBase[2][2] = 0.0f;
+    MatBase[2][3] = 0.0f;
+    MatBase[3][0] = 1.0f;
+    MatBase[3][1] = 0.0f;
+    MatBase[3][2] = 0.0f;
+    MatBase[3][3] = 0.0f;
+  }
+
+  if (transformType == BSPLINE)
+  {
+    MatBase[0][0] = -1.0f / 6.0;
+    MatBase[0][1] = 3.0f / 6.0;
+    MatBase[0][2] = -3.0f / 6.0;
+    MatBase[0][3] = 1.0f / 6.0;
+    MatBase[1][0] = 3.0f / 6.0;
+    MatBase[1][1] = -6.0f / 6.0;
+    MatBase[1][2] = 3.0f / 6.0;
+    MatBase[1][3] = 0.0f;
+    MatBase[2][0] = -3.0f / 6.0;
+    MatBase[2][1] = 0.0f / 6.0;
+    MatBase[2][2] = 3.0f / 6.0;
+    MatBase[2][3] = 0.0f;
+    MatBase[3][0] = 1.0f / 6.0;
+    MatBase[3][1] = 4.0f / 6.0;
+    MatBase[3][2] = 1.0f / 6.0;
+    MatBase[3][3] = 0.0;
+  }
+
+  if (transformType == CATMULLROM)
+  {
+    MatBase[0][0] = -1.0f / 2.0;
+    MatBase[0][1] = 3.0f / 2.0;
+    MatBase[0][2] = -3.0f / 2.0;
+    MatBase[0][3] = 1.0f / 2.0;
+    MatBase[1][0] = 2.0f / 2.0;
+    MatBase[1][1] = -5.0f / 2.0;
+    MatBase[1][2] = 4.0f / 2.0;
+    MatBase[1][3] = -1.0f / 2.0;
+    MatBase[2][0] = -1.0f / 2.0;
+    MatBase[2][1] = 0.0f / 2.0;
+    MatBase[2][2] = 1.0f / 2.0;
+    MatBase[2][3] = 0.0f / 2.0;
+    MatBase[3][0] = 0.0f / 2.0;
+    MatBase[3][1] = 2.0f / 2.0;
+    MatBase[3][2] = 0.0f / 2.0;
+    MatBase[3][3] = 0.0f / 2.0;
+  }
 }
 
 void MatrizIdentidade()
@@ -173,7 +195,7 @@ void MatrizIdentidade()
   }
 }
 
-void MultMatriz()
+void MultiplicarMatrizes()
 {
   int j, k;
   f4d aux;
@@ -184,34 +206,36 @@ void MultMatriz()
       aux[X] = pControle->ponto[j][k][X];
       aux[Y] = pControle->ponto[j][k][Y];
       aux[Z] = pControle->ponto[j][k][Z];
-      aux[W] = 1.0; //pControle->ponto[j][k][W];
+      aux[W] = 1.0; // pControle->ponto[j][k][W];
 
-      //  Pj = MatTransf4x4 . Pj  <--- transformada homogenea 
+      //  Pj = MatTransf4x4 . Pj  <--- transformada homogenea
 
       pControle->ponto[j][k][X] = matTransf[X][X] * aux[X] +
-        matTransf[Y][X] * aux[Y] +
-        matTransf[Z][X] * aux[Z] +
-        matTransf[W][X] * aux[W];
+                                  matTransf[Y][X] * aux[Y] +
+                                  matTransf[Z][X] * aux[Z] +
+                                  matTransf[W][X] * aux[W];
 
       pControle->ponto[j][k][Y] = matTransf[X][Y] * aux[X] +
-        matTransf[Y][Y] * aux[Y] +
-        matTransf[Z][Y] * aux[Z] +
-        matTransf[W][Y] * aux[W];
+                                  matTransf[Y][Y] * aux[Y] +
+                                  matTransf[Z][Y] * aux[Z] +
+                                  matTransf[W][Y] * aux[W];
 
       pControle->ponto[j][k][Z] = matTransf[X][Z] * aux[X] +
-        matTransf[Y][Z] * aux[Y] +
-        matTransf[Z][Z] * aux[Z] +
-        matTransf[W][Z] * aux[W];
+                                  matTransf[Y][Z] * aux[Y] +
+                                  matTransf[Z][Z] * aux[Z] +
+                                  matTransf[W][Z] * aux[W];
 
       pControle->ponto[j][k][W] = matTransf[X][W] * aux[X] +
-        matTransf[Y][W] * aux[Y] +
-        matTransf[Z][W] * aux[Z] +
-        matTransf[W][W] * aux[W];
+                                  matTransf[Y][W] * aux[Y] +
+                                  matTransf[Z][W] * aux[Z] +
+                                  matTransf[W][W] * aux[W];
     }
   }
 }
 
-void prod_VetParam_MatBase(float t, float* tt, float* vr)
+/** produção de matrizes */
+
+void prod_VetParam_MatBase(float t, float *tt, float *vr)
 {
   int i, j;
 
@@ -230,12 +254,10 @@ void prod_VetParam_MatBase(float t, float* tt, float* vr)
   }
 }
 
-void prod_VetMatriz(float* v, f4d** pc, f4d* vr)
+void prod_VetMatriz(float *v, f4d **pc, f4d *vr)
 {
   int i, j;
 
-  // Vr = V . P   <----- combinacao linear
-  // --------------------------------------
   for (i = 0; i < 4; i++)
   {
     vr[i][0] = vr[i][1] = vr[i][2] = 0.0;
@@ -248,32 +270,27 @@ void prod_VetMatriz(float* v, f4d** pc, f4d* vr)
   }
 }
 
-void ptsSuperficie(matriz* pcPatch)
+void ptsSuperficie(matriz *pcPatch)
 {
   int i, j, h, n, m;
   float t, s;
   float tmp[4], vsm[4], vtm[4];
   f4d va[4];
 
-  if (!pcPatch) return;
-
-  // calcular o tamanho (n,m) da matriz de pontos de PATCH
-  // em fun��o do VARIA
+  if (!pcPatch)
+    return;
 
   n = 0;
 
-  for (s = 0; s <= 1.01; s += VARIA) n += 1;
+  for (s = 0; s <= 1.01; s += VARIA)
+    n += 1;
 
   m = n;
 
-  // define o espa�o de um patch
-
-  if (ptsPatch) ptsPatch = liberaMatriz(ptsPatch);
+  if (ptsPatch)
+    ptsPatch = liberaMatriz(ptsPatch);
 
   ptsPatch = AlocaMatriz(n, m);
-
-  // Gera uma matriz de ptsPatch de n x m pontos de cada PATCH
-  // para  ( 0 <= s <= 1 , 0 <= s <= 1 )
 
   s = 0.0f;
   for (i = 0; i < ptsPatch->n; i++)
@@ -281,18 +298,17 @@ void ptsSuperficie(matriz* pcPatch)
     t = 0.0f;
     for (j = 0; j < ptsPatch->m; j++)
     {
-      // calcula cada ponto: p(s, t) = S G P G^t T
 
-      prod_VetParam_MatBase(s, tmp, vsm);    // vsm = S G
-      prod_VetParam_MatBase(t, tmp, vtm);    // vtm = G^t T
+      prod_VetParam_MatBase(s, tmp, vsm);
+      prod_VetParam_MatBase(t, tmp, vtm);
 
-      prod_VetMatriz(vsm, pcPatch->ponto, va);    // va = S G P = vsm P
+      prod_VetMatriz(vsm, pcPatch->ponto, va);
 
       ptsPatch->ponto[i][j][0] = 0.0f;
       ptsPatch->ponto[i][j][1] = 0.0f;
       ptsPatch->ponto[i][j][2] = 0.0f;
 
-      for (h = 0; h < 4; h++)						// p = S G P G^t T = va vtm
+      for (h = 0; h < 4; h++)
       {
         ptsPatch->ponto[i][j][0] += va[h][0] * vtm[h];
         ptsPatch->ponto[i][j][1] += va[h][1] * vtm[h];
@@ -304,13 +320,80 @@ void ptsSuperficie(matriz* pcPatch)
   }
 }
 
+void copiarPtosControlePatch(int i0, int j0, matriz *pcPat)
+{
+  int i, j, jj, ii;
+
+  // copiar n x m pontos desde (i0, j0) apartir da matriz pControle
+  for (i = 0; i < pcPat->n; i++)
+  {
+    ii = i0 + i;
+    for (j = 0; j < pcPat->m; j++)
+    {
+      jj = j0 + j;
+      pcPat->ponto[i][j][0] = pControle->ponto[ii][jj][0];
+      pcPat->ponto[i][j][1] = pControle->ponto[ii][jj][1];
+      pcPat->ponto[i][j][2] = pControle->ponto[ii][jj][2];
+      pcPat->ponto[i][j][3] = pControle->ponto[ii][jj][3];
+    }
+  }
+}
+
+int CarregaPontos(char *arch)
+{
+  FILE *fobj;
+  char token[40];
+  float px, py, pz;
+  int i, j, n, m;
+
+  printf(" \n ler  %s  \n", arch);
+
+  if ((fobj = fopen(arch, "r")) == NULL)
+  {
+    printf("Error en la apertura del archivo %s \n", arch);
+    return 0;
+  }
+
+  fgets(token, 40, fobj);
+  fscanf(fobj, "%s %d %d", token, &n, &m);
+
+  if (pControle)
+    pControle = liberaMatriz(pControle);
+
+  pControle = AlocaMatriz(n, m);
+
+  fscanf(fobj, "%s", token); // leitura da linha 0
+
+  for (j = 0; j < pControle->n; j++)
+  {
+    for (i = 0; i < pControle->m; i++)
+    {
+      fscanf(fobj, "%s %f %f %f", token, &px, &py, &pz);
+
+      pControle->ponto[j][i][0] = px * local_scale;
+      pControle->ponto[j][i][1] = py * local_scale;
+      pControle->ponto[j][i][2] = pz * local_scale;
+      pControle->ponto[j][i][3] = 1.0f;
+    }
+    fscanf(fobj, "%s", token); // leitura da linha j+1;
+  }
+
+  // espaco de matriz para um patch
+  if (pcPatch)
+    pcPatch = liberaMatriz(pcPatch);
+  pcPatch = AlocaMatriz(4, 4);
+}
+
+/** Magica do glut */
+
 void MostrarUmPatch(int cc)
 {
   int i, j;
   float t, v, s;
   f4d a, b, n, l, cx, cy, c;
 
-  if (!ptsPatch)  return;
+  if (!ptsPatch)
+    return;
 
   switch (tipoView)
   {
@@ -371,7 +454,9 @@ void MostrarUmPatch(int cc)
 
         s = sqrt(n[X] * n[X] + n[Y] * n[Y] + n[Z] * n[Z]);
 
-        n[X] /= s; n[Y] /= s; n[Z] /= s;
+        n[X] /= s;
+        n[Y] /= s;
+        n[Z] /= s;
 
         l[X] = pView[X] - ptsPatch->ponto[i][j][X];
         l[Y] = pView[Y] - ptsPatch->ponto[i][j][Y];
@@ -412,7 +497,9 @@ void MostrarUmPatch(int cc)
 
         s = sqrt(n[X] * n[X] + n[Y] * n[Y] + n[Z] * n[Z]);
 
-        n[X] /= s; n[Y] /= s; n[Z] /= s;
+        n[X] /= s;
+        n[Y] /= s;
+        n[Z] /= s;
 
         l[X] = pView[X] - ptsPatch->ponto[i + 1][j][X];
         l[Y] = pView[Y] - ptsPatch->ponto[i + 1][j][Y];
@@ -453,7 +540,9 @@ void MostrarUmPatch(int cc)
 
         s = sqrt(n[X] * n[X] + n[Y] * n[Y] + n[Z] * n[Z]);
 
-        n[X] /= s; n[Y] /= s; n[Z] /= s;
+        n[X] /= s;
+        n[Y] /= s;
+        n[Z] /= s;
 
         l[X] = pView[X] - ptsPatch->ponto[i][j + 1][X];
         l[Y] = pView[Y] - ptsPatch->ponto[i][j + 1][Y];
@@ -494,7 +583,9 @@ void MostrarUmPatch(int cc)
 
         s = sqrt(n[X] * n[X] + n[Y] * n[Y] + n[Z] * n[Z]);
 
-        n[X] /= s; n[Y] /= s; n[Z] /= s;
+        n[X] /= s;
+        n[Y] /= s;
+        n[Z] /= s;
 
         l[X] = pView[X] - ptsPatch->ponto[i + 1][j + 1][X];
         l[Y] = pView[Y] - ptsPatch->ponto[i + 1][j + 1][Y];
@@ -519,10 +610,9 @@ void MostrarUmPatch(int cc)
     }
     break;
   }
-
 }
 
-void MostrarPtosPoligControle(matriz* sup)
+void MostrarPtosPoligControle(matriz *sup)
 {
   int i, j;
 
@@ -553,44 +643,27 @@ void MostrarPtosPoligControle(matriz* sup)
   }
 }
 
-void copiarPtosControlePatch(int i0, int j0, matriz* pcPat)
-{
-  int i, j, jj, ii;
+/** Funcões do programa */
 
-  // copiar n x m pontos desde (i0, j0) apartir da matriz pControle
-  for (i = 0; i < pcPat->n; i++)
-  {
-    ii = i0 + i;
-    for (j = 0; j < pcPat->m; j++)
-    {
-      jj = j0 + j;
-      pcPat->ponto[i][j][0] = pControle->ponto[ii][jj][0];
-      pcPat->ponto[i][j][1] = pControle->ponto[ii][jj][1];
-      pcPat->ponto[i][j][2] = pControle->ponto[ii][jj][2];
-      pcPat->ponto[i][j][3] = pControle->ponto[ii][jj][3];
-    }
-  }
-}
-
-void DisenaSuperficie(void)
+void DrawSurface(void)
 {
   int i, j, nn, mm;
 
-  nn = pControle->n - 3;   // numero de descolamentos (patchs)
+  nn = pControle->n - 3; // numero de descolamentos (patchs)
 
   for (i = 0; i < nn; i++)
   {
     mm = pControle->m - 3;
     for (j = 0; j < mm; j++)
     {
-      copiarPtosControlePatch(i, j, pcPatch);  // copiar ptos de controle em matriz 4 x 4
-      ptsSuperficie(pcPatch);        // calculos pontos do PATCH com os ptos de Contrle em pcPatch 
+      copiarPtosControlePatch(i, j, pcPatch); // copiar ptos de controle em matriz 4 x 4
+      ptsSuperficie(pcPatch);                 // calculos pontos do PATCH com os ptos de Contrle em pcPatch
       MostrarUmPatch(idCor);
     }
   }
 }
 
-static void init(void)
+void init(void)
 {
   glClearColor(1.0, 1.0, 1.0, 0.0);
   glEnable(GL_DEPTH_TEST);
@@ -607,8 +680,8 @@ void display(void)
 
   if (pControle)
   {
-    MostrarPtosPoligControle(pControle);  // mostrando pontos de controle
-    DisenaSuperficie();                   // disenhando un objeto
+    MostrarPtosPoligControle(pControle); // mostrando pontos de controle
+    DrawSurface();                       // disenhando un objeto
   }
   glutSwapBuffers();
 }
@@ -622,10 +695,10 @@ void reshape(int w, int h)
   glLoadIdentity();
   if (w <= h)
     glOrtho(-10.0, 10.0, -10.0 * (GLfloat)h / (GLfloat)w,
-      10.0 * (GLfloat)h / (GLfloat)w, -10.0, 30.0);
+            10.0 * (GLfloat)h / (GLfloat)w, -10.0, 30.0);
   else
     glOrtho(-10.0 * (GLfloat)w / (GLfloat)h,
-      10.0 * (GLfloat)w / (GLfloat)h, -10.0, 10.0, -10.0, 30.0);
+            10.0 * (GLfloat)w / (GLfloat)h, -10.0, 10.0, -10.0, 30.0);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -655,7 +728,7 @@ int clipVertex(int x, int y)
 
       if (d < 5.0)
       {
-        gIndVert = i;    // achou o indice do vértice
+        gIndVert = i; // achou o indice do vértice
         break;
       }
     }
@@ -663,55 +736,60 @@ int clipVertex(int x, int y)
   return gIndVert;
 }
 
-void scale(int key) {
-  if (key == GLUT_KEY_LEFT || key == GLUT_KEY_DOWN) {
+void scale(int key)
+{
+  if (key == GLUT_KEY_LEFT || key == GLUT_KEY_DOWN)
+  {
     matTransf[0][0] = 0.99;
     matTransf[1][1] = 0.99;
     matTransf[2][2] = 0.99;
   }
-  else
-    if (key == GLUT_KEY_RIGHT || key == GLUT_KEY_UP) {
-      matTransf[0][0] = 1.01;
-      matTransf[1][1] = 1.01;
-      matTransf[2][2] = 1.01;
-    }
+  else if (key == GLUT_KEY_RIGHT || key == GLUT_KEY_UP)
+  {
+    matTransf[0][0] = 1.01;
+    matTransf[1][1] = 1.01;
+    matTransf[2][2] = 1.01;
+  }
 }
 
-void translateX(int key, float x) {
+void translateX(int key, float x)
+{
   printf("translateX\n");
   printf("key: %d\n", key);
   printf("x: %f\n", x);
 
   if (key == GLUT_KEY_LEFT)
     matTransf[3][0] = -x;
-  else
-    if (key == GLUT_KEY_RIGHT)
-      matTransf[3][0] = x;
+  else if (key == GLUT_KEY_RIGHT)
+    matTransf[3][0] = x;
 }
 
-void translateY(int key, float y) {
+void translateY(int key, float y)
+{
   if (key == GLUT_KEY_UP)
     matTransf[3][1] = y;
-  else
-    if (key == GLUT_KEY_DOWN)
-      matTransf[3][1] = -y;
+  else if (key == GLUT_KEY_DOWN)
+    matTransf[3][1] = -y;
 }
 
-void translateZ(int key) {
-  if (key == GLUT_KEY_LEFT || key == GLUT_KEY_DOWN) {
+void translateZ(int key)
+{
+  if (key == GLUT_KEY_LEFT || key == GLUT_KEY_DOWN)
+  {
     matTransf[0][0] = 0.99;
     matTransf[1][1] = 0.99;
     matTransf[2][2] = 0.99;
   }
-  else
-    if (key == GLUT_KEY_RIGHT || key == GLUT_KEY_UP) {
-      matTransf[0][0] = 1.01;
-      matTransf[1][1] = 1.01;
-      matTransf[2][2] = 1.01;
-    }
+  else if (key == GLUT_KEY_RIGHT || key == GLUT_KEY_UP)
+  {
+    matTransf[0][0] = 1.01;
+    matTransf[1][1] = 1.01;
+    matTransf[2][2] = 1.01;
+  }
 }
 
-void rotateX(int key) {
+void rotateX(int key)
+{
   if (key == GLUT_KEY_LEFT)
   {
     matTransf[1][1] = cos(-0.01);
@@ -719,17 +797,17 @@ void rotateX(int key) {
     matTransf[2][1] = -sin(-0.01);
     matTransf[2][2] = cos(-0.01);
   }
-  else
-    if (key == GLUT_KEY_RIGHT)
-    {
-      matTransf[1][1] = cos(0.01);
-      matTransf[1][2] = sin(0.01);
-      matTransf[2][1] = -sin(0.01);
-      matTransf[2][2] = cos(0.01);
-    }
+  else if (key == GLUT_KEY_RIGHT)
+  {
+    matTransf[1][1] = cos(0.01);
+    matTransf[1][2] = sin(0.01);
+    matTransf[2][1] = -sin(0.01);
+    matTransf[2][2] = cos(0.01);
+  }
 }
 
-void rotateY(int key) {
+void rotateY(int key)
+{
   if (key == GLUT_KEY_UP)
   {
     matTransf[0][0] = cos(-0.01);
@@ -737,17 +815,17 @@ void rotateY(int key) {
     matTransf[2][0] = -sin(-0.01);
     matTransf[2][2] = cos(-0.01);
   }
-  else
-    if (key == GLUT_KEY_DOWN)
-    {
-      matTransf[0][0] = cos(0.01);
-      matTransf[0][2] = sin(0.01);
-      matTransf[2][0] = -sin(0.01);
-      matTransf[2][2] = cos(0.01);
-    }
+  else if (key == GLUT_KEY_DOWN)
+  {
+    matTransf[0][0] = cos(0.01);
+    matTransf[0][2] = sin(0.01);
+    matTransf[2][0] = -sin(0.01);
+    matTransf[2][2] = cos(0.01);
+  }
 }
 
-void rotateZ(int key) {
+void rotateZ(int key)
+{
   if (key == GLUT_KEY_LEFT)
   {
     matTransf[0][0] = cos(-0.01);
@@ -755,93 +833,108 @@ void rotateZ(int key) {
     matTransf[1][0] = -sin(-0.01);
     matTransf[1][1] = cos(-0.01);
   }
-  else
-    if (key == GLUT_KEY_RIGHT)
-    {
-      matTransf[0][0] = cos(0.01);
-      matTransf[0][1] = sin(0.01);
-      matTransf[1][0] = -sin(0.01);
-      matTransf[1][1] = cos(0.01);
-    }
+  else if (key == GLUT_KEY_RIGHT)
+  {
+    matTransf[0][0] = cos(0.01);
+    matTransf[0][1] = sin(0.01);
+    matTransf[1][0] = -sin(0.01);
+    matTransf[1][1] = cos(0.01);
+  }
 }
 
 void motion(int x, int y)
 {
   int i;
   float dx, dy;
-  x = x - windW; y = windH - y;
+  x = x - windW;
+  y = windH - y;
 
   dx = x - xinicial;
   dy = y - yinicial;
 
   int ladoX = 0, ladoY = 0;
 
-  switch (comando) {
+  switch (comando)
+  {
   case Escalar:
-    if (dy > 0) {
+    if (dy > 0)
+    {
       ladoY = GLUT_KEY_UP;
     }
-    else {
+    else
+    {
       ladoY = GLUT_KEY_DOWN;
     }
 
     scale(ladoY);
     break;
   case RotarX:
-    if (dx > 0) {
+    if (dx > 0)
+    {
       ladoX = GLUT_KEY_RIGHT;
     }
-    else {
+    else
+    {
       ladoX = GLUT_KEY_LEFT;
     }
 
     rotateX(ladoX);
     break;
   case RotarY:
-    if (dy > 0) {
+    if (dy > 0)
+    {
       ladoY = GLUT_KEY_UP;
     }
-    else {
+    else
+    {
       ladoY = GLUT_KEY_DOWN;
     }
 
     rotateY(ladoY);
     break;
   case RotarZ:
-    if (dx > 0) {
+    if (dx > 0)
+    {
       ladoX = GLUT_KEY_RIGHT;
     }
-    else {
+    else
+    {
       ladoX = GLUT_KEY_LEFT;
     }
 
     rotateZ(ladoX);
     break;
   case TransladaX:
-    if (dx > 0) {
+    if (dx > 0)
+    {
       ladoX = GLUT_KEY_RIGHT;
     }
-    else {
+    else
+    {
       ladoX = GLUT_KEY_LEFT;
     }
 
     translateX(ladoX, 0.1);
     break;
   case TransladaY:
-    if (dy > 0) {
+    if (dy > 0)
+    {
       ladoY = GLUT_KEY_UP;
     }
-    else {
+    else
+    {
       ladoY = GLUT_KEY_DOWN;
     }
 
     translateY(ladoY, 0.1);
     break;
   case TransladaZ:
-    if (dy > 0) {
+    if (dy > 0)
+    {
       ladoY = GLUT_KEY_UP;
     }
-    else {
+    else
+    {
       ladoY = GLUT_KEY_DOWN;
     }
 
@@ -849,17 +942,16 @@ void motion(int x, int y)
     break;
   }
 
-
   xinicial = dx;
   yinicial = dy;
 
-  MultMatriz();
+  MultiplicarMatrizes();
   glutPostRedisplay();
 }
 
 void mouse(int button, int state, int x, int y)
 {
-  if (state == GLUT_DOWN)       //  botão SOLTO
+  if (state == GLUT_DOWN) //  botão SOLTO
   {
     if (button == GLUT_LEFT_BUTTON)
     {
@@ -882,7 +974,7 @@ void mouse(int button, int state, int x, int y)
 
 void keyboard(int key, int x, int y)
 {
-  MatrizIdentidade();  // identidade em matTransf : matriz de transforma
+  MatrizIdentidade(); // identidade em matTransf : matriz de transforma
   switch (comando)
   {
   case Escalar:
@@ -907,79 +999,36 @@ void keyboard(int key, int x, int y)
     translateZ(key);
     break;
   }
-  MultMatriz();
+  MultiplicarMatrizes();
   glutPostRedisplay();
-}
-
-int CarregaPontos(char* arch)
-{
-  FILE* fobj;
-  char token[40];
-  float px, py, pz;
-  int i, j, n, m;
-
-  printf(" \n ler  %s  \n", arch);
-
-  if ((fobj = fopen(arch, "rt")) == NULL)
-  {
-    printf("Error en la apertura del archivo %s \n", arch);
-    return 0;
-  }
-
-  fgets(token, 40, fobj);
-  fscanf(fobj, "%s %d %d", token, &n, &m);
-
-  if (pControle) pControle = liberaMatriz(pControle);
-
-  pControle = AlocaMatriz(n, m);
-
-  fscanf(fobj, "%s", token);  // leitura da linha 0
-
-  for (j = 0; j < pControle->n; j++)
-  {
-    for (i = 0; i < pControle->m; i++)
-    {
-      fscanf(fobj, "%s %f %f %f", token, &px, &py, &pz);
-
-      pControle->ponto[j][i][0] = px * local_scale;
-      pControle->ponto[j][i][1] = py * local_scale;
-      pControle->ponto[j][i][2] = pz * local_scale;
-      pControle->ponto[j][i][3] = 1.0f;
-
-    }
-    fscanf(fobj, "%s", token);  // leitura da linha j+1;
-  }
-
-  // espaco de matriz para um patch
-  if (pcPatch) pcPatch = liberaMatriz(pcPatch);
-  pcPatch = AlocaMatriz(4, 4);
-
 }
 
 void processMenuEvents(int option)
 {
+
   MatrizIdentidade();
   if (option == PtsControle)
-    CarregaPontos("ptosControleSuperficie4x4.txt");  // ptosControleArbitra4x4   ptosControleSuperficieTrab ptosControleSuperficie4x4
-  else if (option == Pontos)
+    CarregaPontos("/home/augusto/dev/home/old/riveira-compgrafica/trab23/44pto.txt"); // ptosControleArbitra4x4   ptosControleSuperficieTrab ptosControleSuperficie4x4
+  else if (option == Points)
     tipoView = GL_POINTS;
-  else if (option == Linha)
+  else if (option == Line)
     tipoView = GL_LINE_STRIP;
-  else if (option == Solido)
+  else if (option == Solid)
     tipoView = GL_QUADS;
   else if (option == sair)
     exit(0);
   else
     comando = option;
 
-  if (option == BEZIER || option == BSPLINE || option == CATMULLROM)  // OBSERVACAO: considerar cado de CATMULLROM
+  if (option == BEZIER || option == BSPLINE || option == CATMULLROM) // OBSERVACAO: considerar cado de CATMULLROM
   {
-    MontaMatrizBase(option);
+    AlterarTransformacao(option);
   }
   glutPostRedisplay();
 }
 
-void processColorEvents(int option) {
+void processColorEvents(int option)
+{
   switch (option)
   {
   case 0:
@@ -1017,16 +1066,15 @@ void createGLUTMenus()
   glutAddMenuEntry("EixoY", RotarY);
   glutAddMenuEntry("EixoZ", RotarZ);
 
-
   SUBmenuTransladar = glutCreateMenu(processMenuEvents);
   glutAddMenuEntry("EixoX", TransladaX);
   glutAddMenuEntry("EixoY", TransladaY);
   glutAddMenuEntry("EixoZ", TransladaZ);
 
   SUBmenuPintar = glutCreateMenu(processMenuEvents);
-  glutAddMenuEntry("Pontos", Pontos);
-  glutAddMenuEntry("Malha", Linha);
-  glutAddMenuEntry("Preenchido", Solido);
+  glutAddMenuEntry("Pontos", Points);
+  glutAddMenuEntry("Malha", Line);
+  glutAddMenuEntry("Preenchido", Solid);
 
   SUBmenuCores = glutCreateMenu(processColorEvents);
   glutAddMenuEntry("Vermelho", 0);
@@ -1047,7 +1095,7 @@ void createGLUTMenus()
   glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
   glutInit(&argc, argv);
 
@@ -1067,4 +1115,3 @@ int main(int argc, char** argv)
   glutMainLoop();
   return 0;
 }
-
